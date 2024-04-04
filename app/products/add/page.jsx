@@ -1,17 +1,17 @@
 "use client"
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { db, storage } from "../../../firebase";
+import { db, storage, auth } from "../../../firebase"; // Ensure 'auth' is exported from your firebase config
 import { addDoc, collection } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import {Toaster, toast} from "react-hot-toast";
+import { Toaster, toast } from "react-hot-toast";
 import Header from "../../../components/header";
 import Footer from "../../../components/footer";
 
 export default function AddProduct() {
-  const { register, handleSubmit, watch } = useForm();
+  const { register, handleSubmit } = useForm();
   const [image, setImage] = useState(null);
-  const listingType = watch("listingType");
 
   const handleImageChange = (e) => {
     if (e.target.files[0]) {
@@ -20,7 +20,7 @@ export default function AddProduct() {
   };
 
   const onSubmit = async (data) => {
-    if (!image) return;
+    if (!image || !auth.currentUser) return;
 
     const imageRef = ref(storage, `images/${image.name}`);
     await uploadBytes(imageRef, image);
@@ -29,41 +29,31 @@ export default function AddProduct() {
     const productData = {
       ...data,
       imageUrl,
-      status: "available",
+      status: "unavailable",
+      userId: auth.currentUser.uid, // Using Firebase Auth to get the user ID
     };
 
     await addDoc(collection(db, "products"), productData);
-    toast.success("product added succesfully")
+    toast.success("Product added successfully");
   };
 
   return (
     <div className="flex flex-col min-h-screen">
-    <Toaster />
-    <Header />
-    <div className="container mx-auto p-4">
-      
-      <h1 className="text-2xl font-bold mb-4">Add a Product</h1>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <input {...register("name")} placeholder="Product Name" className="block text-black w-full mb-2" />
-        <textarea {...register("description")} placeholder="Product Description" className="block text-black w-full mb-2" />
-        <input type="file" onChange={handleImageChange} className="block w-full mb-2" />
-        <select {...register("listingType")} className="block w-full text-black mb-2">
-          <option value="sell">Sell</option>
-          <option value="rent">Rent</option>
-          <option value="both">Both</option>
-        </select>
-        {listingType === "sell" || listingType === "both" ? (
-          <input {...register("price")} type="number" placeholder="Selling Price" className="block text-black w-full mb-2" />
-        ) : null}
-        {listingType === "rent" || listingType === "both" ? (
-          <input {...register("price")} type="number" placeholder="Rent Price per Month" className="block text-black w-full mb-2" />
-        ) : null}
-        <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">
-          Add Product
-        </button>
-      </form>
-    </div>
-    <Footer />
+      <Toaster />
+      <Header />
+      <div className="container mx-auto p-4">
+        <h1 className="text-2xl font-bold mb-4">Add a Product</h1>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <input {...register("name")} placeholder="Product Name" className="block text-black w-full mb-2" />
+          <textarea {...register("description")} placeholder="Product Description" className="block text-black w-full mb-2" />
+          <input type="file" onChange={handleImageChange} className="block w-full mb-2" />
+          <input {...register("price")} type="number" placeholder="Price" className="block text-black w-full mb-2" />
+          <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">
+            Add Product
+          </button>
+        </form>
+      </div>
+      <Footer />
     </div>
   );
 }

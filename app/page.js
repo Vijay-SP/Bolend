@@ -1,27 +1,94 @@
 "use client"
 
 import { useState, useEffect } from "react";
-import { db } from "../firebase";
-import { collection, getDocs, query, where, arrayUnion, doc, updateDoc } from "firebase/firestore";
-import Link from "next/link";
-import { auth } from "../firebase";
-
+import { db, auth } from "../firebase";
+import { collection, getDocs, query, where, arrayUnion, doc, updateDoc, getDoc } from "firebase/firestore";
 import { toast, Toaster } from "react-hot-toast";
-
 import Header from "../components/header";
 import Footer from "../components/footer";
 
 export default function HomePage() {
   const [products, setProducts] = useState([]);
   const userId = auth.currentUser ? auth.currentUser.uid : null;
+  const [userProducts, setUserProducts] = useState([]);
+  const [selectedProductsForBarter, setSelectedProductsForBarter] = useState({});
 
-  const addToCart = async (userId, productId) => {
+  const fetchUserProducts = async () => {
+    if (!userId) {
+      console.log("User not logged in");
+      return;
+    }
+
+    const q = query(collection(db, "products"), where("userId", "==", userId));
+    const querySnapshot = await getDocs(q);
+    const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setUserProducts(items);
+  };
+
+  useEffect(() => {
+    fetchUserProducts();
+  }, [userId]);
+
+  const addToCart = async (productId) => {
+    if (!userId) return toast.error("You must be logged in to add products to cart");
+
     const userDocRef = doc(db, 'users', userId);
     await updateDoc(userDocRef, {
       cart: arrayUnion(productId),
     });
     toast.success("Product added to cart");
   };
+  const confirmBarterRequest = async (productId) => {
+    const selectedProductId = selectedProductsForBarter[productId];
+    if (!selectedProductId) return;
+  
+    const selectedProduct = userProducts.find(product => product.id === selectedProductId);
+    if (!selectedProduct) return;
+  
+    const confirmationMessage = `Are you sure you want to create a request to barter with "${selectedProduct.name}"?`;
+  
+    if (window.confirm(confirmationMessage)) {
+      try {
+        // Update the document of the product displayed in the card with the user's ID, the product ID for exchange, and mark it as unavailable
+        const productDocRef = doc(db, 'products', productId);
+        const productDocSnapshot = await getDoc(productDocRef);  // Corrected from getDocs to getDoc
+  
+        if (productDocSnapshot.exists()) {
+          const productData = productDocSnapshot.data();
+  
+          const updatedRequests = [
+            ...(productData.barterRequests || []),
+            {
+              requestingUserId: userId,
+              requestingUserEmail: auth.currentUser.email,
+              selectedProductName: selectedProduct.name,
+              selectedProductPrice: selectedProduct.price,
+              selectedProductImage: selectedProduct.imageUrl,
+              barterExchangeProductId: selectedProductId,
+              barterExchangeProductName: productData.name,
+              barterExchangeProductPrice: productData.price,
+              barterExchangeProductImage: productData.imageUrl,
+              barterStatus: false,
+            }
+          ];
+  
+          await updateDoc(productDocRef, {
+            status: 'unavailable', // Mark the status as unavailable
+            barterRequests: updatedRequests, // Update barter requests array
+          });
+  
+          toast.success("Barter request created successfully");
+        } else {
+          toast.error("Product not found");
+        }
+      } catch (error) {
+        console.error("Error confirming barter request: ", error);
+        toast.error("Error confirming barter request. Please try again.", error);
+      }
+    }
+  };
+    
+  
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -37,41 +104,44 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-    <Toaster />
+      <Toaster />
       <Header />
       <main className="flex-grow container mx-auto p-4">
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {products.map(product => (
-            <div key={product.id} className="bg-white shadow rounded p-4">
-              <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover rounded" />
-              <h3 className="text-lg text-purple-400 font-bold mt-2">{product.name}</h3>
-              <p className="text-gray-600">{product.description}</p>
-              {product.listingType === 'rent' && (
-                <button className="mt-2 px-4 py-2 bg-green-500 rounded text-white hover:bg-green-600">
-                  Rent for ${product.price} per month
-                </button>
-              )}
-              {product.listingType === 'sell' && (
-                <button className="mt-2 px-4 py-2 bg-blue-500 rounded text-white hover:bg-blue-600">
-                  Purchase for ${product.price}
-                </button>
-              )}
-              {product.listingType === 'both' && (
-                <>
-                  <button className="mt-2 px-4 py-2 bg-green-500 rounded text-white hover:bg-green-600">
-                    Rent for ${product.rentPrice} per month
+            <div key={product.id} className="bg-white shadow rounded-lg overflow-hidden">
+              <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover" />
+              <div className="p-4">
+                <h3 className="text-lg text-purple-500 font-bold">{product.name}</h3>
+                <p className="text-gray-600 mb-4">{product.description}</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-semibold">Rs. {product.price}</span>
+                  <button onClick={() => addToCart(product.id)}
+                    className="px-4 py-2 bg-yellow-500 rounded text-white hover:bg-yellow-600 transition-colors">
+                    Add to Cart
                   </button>
-                  <button className="mt-2 px-4 py-2 bg-blue-500 rounded text-white hover:bg-blue-600">
-                    Purchase for ${product.sellPrice}
+                </div>
+                <div className="mt-2">
+                  <label htmlFor={`barterProduct-${product.id}`} className="block text-sm font-medium text-gray-700">Choose a product for barter:</label>
+                  <select
+                    id={`barterProduct-${product.id}`}
+                    value={selectedProductsForBarter[product.id] || ''}
+                    onChange={e => setSelectedProductsForBarter({
+                      ...selectedProductsForBarter,
+                      [product.id]: e.target.value,
+                    })}
+                    className="mt-1 block w-full text-black pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                  >
+                    <option value="">Select your product</option>
+                    {userProducts.map((userProduct) => (
+                      <option key={userProduct.id} value={userProduct.id}>{userProduct.name}</option>
+                    ))}
+                  </select>
+                  <button onClick={() => confirmBarterRequest(product.id)} className="mt-2 px-4 py-2 bg-green-500 rounded text-white hover:bg-green-600 transition-colors">
+                    Make Barter Request
                   </button>
-                </>
-              )}
-              <button
-                onClick={() => addToCart(userId, product.id)}
-                className="mt-2 px-4 py-2 bg-yellow-500 rounded text-white hover:bg-yellow-600"
-              >
-                Add to Cart
-              </button>
+                </div>
+              </div>
             </div>
           ))}
         </div>

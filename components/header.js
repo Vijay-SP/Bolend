@@ -35,10 +35,13 @@ export default function Header() {
           {user ? (
             <>
               <Link href="/products/add">
-                <p className="ml-4 px-4 py-2 bg-blue-500 rounded hover:bg-blue-600">Sell Products</p>
+                <p className="ml-4 px-4 py-2 bg-blue-500 rounded hover:bg-blue-600">Add Products</p>
               </Link>
               <Link href="/cart">
                 <p className="ml-4 mr-6 px-4 py-2 bg-green-500 rounded hover:bg-green-600">My Cart</p>
+              </Link>
+              <Link href="/products">
+                <p className="ml-4 mr-6 px-4 py-2 bg-green-500 rounded hover:bg-green-600">My Products</p>
               </Link>
               <Link href="/my-purchases">
                 <p className="ml-4 mr-6 px-4 py-2 bg-green-500 rounded hover:bg-green-600">My Purchases</p>
