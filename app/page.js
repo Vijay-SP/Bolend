@@ -6,6 +6,8 @@ import { collection, getDocs, query, where, arrayUnion, doc, updateDoc } from "f
 import Link from "next/link";
 import { auth } from "../firebase";
 
+import { toast, Toaster } from "react-hot-toast";
+
 import Header from "../components/header";
 import Footer from "../components/footer";
 
@@ -18,6 +20,7 @@ export default function HomePage() {
     await updateDoc(userDocRef, {
       cart: arrayUnion(productId),
     });
+    toast.success("Product added to cart");
   };
 
   useEffect(() => {
@@ -34,6 +37,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen">
+    <Toaster />
       <Header />
       <main className="flex-grow container mx-auto p-4">
         <div className="grid grid-cols-3 gap-4">
@@ -44,12 +48,12 @@ export default function HomePage() {
               <p className="text-gray-600">{product.description}</p>
               {product.listingType === 'rent' && (
                 <button className="mt-2 px-4 py-2 bg-green-500 rounded text-white hover:bg-green-600">
-                  Rent for ${product.rentPrice} per month
+                  Rent for ${product.price} per month
                 </button>
               )}
               {product.listingType === 'sell' && (
                 <button className="mt-2 px-4 py-2 bg-blue-500 rounded text-white hover:bg-blue-600">
-                  Purchase for ${product.sellPrice}
+                  Purchase for ${product.price}
                 </button>
               )}
               {product.listingType === 'both' && (

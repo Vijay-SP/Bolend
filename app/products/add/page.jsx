@@ -37,7 +37,7 @@ export default function AddProduct() {
   };
 
   return (
-    <>
+    <div className="flex flex-col min-h-screen">
     <Toaster />
     <Header />
     <div className="container mx-auto p-4">
@@ -53,10 +53,10 @@ export default function AddProduct() {
           <option value="both">Both</option>
         </select>
         {listingType === "sell" || listingType === "both" ? (
-          <input {...register("sellPrice")} placeholder="Selling Price" className="block text-black w-full mb-2" />
+          <input {...register("price")} type="number" placeholder="Selling Price" className="block text-black w-full mb-2" />
         ) : null}
         {listingType === "rent" || listingType === "both" ? (
-          <input {...register("rentPrice")} placeholder="Rent Price per Month" className="block text-black w-full mb-2" />
+          <input {...register("price")} type="number" placeholder="Rent Price per Month" className="block text-black w-full mb-2" />
         ) : null}
         <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">
           Add Product
@@ -64,6 +64,6 @@ export default function AddProduct() {
       </form>
     </div>
     <Footer />
-    </>
+    </div>
   );
 }
