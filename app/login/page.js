@@ -10,6 +10,8 @@ import {
   } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation"
+import Header from '@/components/header';
+import Footer from '@/components/footer';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -58,10 +60,13 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <>
+      <Header />
+    <div className="min-h-screen flex items-center justify-center  py-auto px-4 sm:px-6 lg:px-8">
+    
+      <div className="max-w-md w-full space-y-6">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">{isSignup ? 'Sign up for an account' : 'Sign in to your account'}</h2>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-200">{isSignup ? 'Sign up for an account' : 'Sign in to your account'}</h2>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>
           <input type="hidden" name="remember" value="true" />
@@ -142,14 +147,17 @@ const LoginPage = () => {
             </button>
           </div>
         </form>
-        <p className="mt-2 text-center text-sm text-gray-600">
+        <p className="mt-2 text-center text-sm text-gray-400">
           {isSignup ? 'Already have an account? ' : "Don't have an account? "}
           <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500" onClick={() => setIsSignup(!isSignup)}>
             {isSignup ? 'Sign in' : 'Sign up'}
           </a>
         </p>
       </div>
+      
     </div>
+    <Footer />
+    </>
   );
 };
 

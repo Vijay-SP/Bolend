@@ -12,6 +12,8 @@ export default function HomePage() {
   const userId = auth.currentUser ? auth.currentUser.uid : null;
   const [userProducts, setUserProducts] = useState([]);
   const [selectedProductsForBarter, setSelectedProductsForBarter] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
 
   const fetchUserProducts = async () => {
     if (!userId) {
@@ -38,6 +40,7 @@ export default function HomePage() {
     });
     toast.success("Product added to cart");
   };
+
   const confirmBarterRequest = async (productId) => {
     const selectedProductId = selectedProductsForBarter[productId];
     if (!selectedProductId) return;
@@ -49,9 +52,8 @@ export default function HomePage() {
   
     if (window.confirm(confirmationMessage)) {
       try {
-        // Update the document of the product displayed in the card with the user's ID, the product ID for exchange, and mark it as unavailable
         const productDocRef = doc(db, 'products', productId);
-        const productDocSnapshot = await getDoc(productDocRef);  // Corrected from getDocs to getDoc
+        const productDocSnapshot = await getDoc(productDocRef);
   
         if (productDocSnapshot.exists()) {
           const productData = productDocSnapshot.data();
@@ -73,8 +75,8 @@ export default function HomePage() {
           ];
   
           await updateDoc(productDocRef, {
-            status: 'unavailable', // Mark the status as unavailable
-            barterRequests: updatedRequests, // Update barter requests array
+            status: 'unavailable',
+            barterRequests: updatedRequests,
           });
   
           toast.success("Barter request created successfully");
@@ -83,12 +85,10 @@ export default function HomePage() {
         }
       } catch (error) {
         console.error("Error confirming barter request: ", error);
-        toast.error("Error confirming barter request. Please try again.", error);
+        toast.error("Error confirming barter request. Please try again.");
       }
     }
   };
-    
-  
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -102,13 +102,56 @@ export default function HomePage() {
     fetchProducts();
   }, []);
 
+  const filteredProducts = products.filter(product => {
+    return (
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.id.toLowerCase().includes(searchTerm.toLowerCase())
+    ) && (selectedCategory === '' || product.category === selectedCategory);
+  });
+
   return (
     <div className="flex flex-col min-h-screen">
       <Toaster />
       <Header />
       <main className="flex-grow container mx-auto p-4">
+        <div className="mb-4 flex flex-row justify-center ">
+          <input
+            type="text"
+            placeholder="Search by name, description, or ID"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="block w-80 px-8 mx-4 py-2 text-gray-400 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className=" block w-50 px-8 py-2 text-gray-400 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          >
+            <option value="">All Categories</option>
+            <option value="ACs">ACs</option>
+            <option value="Beds & Wardrobes">Beds & Wardrobes</option>
+            <option value="Cameras & Lenses">Cameras & Lenses</option>
+            <option value="Computer Accessories">Computer Accessories</option>
+            <option value="Computers & Laptops">Computers & Laptops</option>
+            <option value="Fridges">Fridges</option>
+            <option value="Games & Entertainment">Games & Entertainment</option>
+            <option value="Hard Disks, Printers & Monitors">Hard Disks, Printers & Monitors</option>
+            <option value="Home Decor & Garden">Home Decor & Garden</option>
+            <option value="Kids Furniture">Kids Furniture</option>
+            <option value="Kitchen & Other Appliances">Kitchen & Other Appliances</option>
+            <option value="Laptop & Computer">Laptop & Computer</option>
+            <option value="Mobile Accessories">Mobile Accessories</option>
+            <option value="Mobile Phone">Mobile Phone</option>
+            <option value="Other Household Items">Other Household Items</option>
+            <option value="Sofa & Dining">Sofa & Dining</option>
+            <option value="Tablets">Tablets</option>
+            <option value="TVs, Video - Audio">TVs, Video - Audio</option>
+            <option value="Washing Machines">Washing Machines</option>
+          </select>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {products.map(product => (
+          {filteredProducts.map(product => (
             <div key={product.id} className="bg-white shadow rounded-lg overflow-hidden">
               <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover" />
               <div className="p-4">
