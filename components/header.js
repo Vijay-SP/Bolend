@@ -50,7 +50,7 @@ export default function Header() {
                   onClick={() => setShowDropdown(!showDropdown)}
                   className="focus:outline-none"
                 >
-                  {user.displayName}
+                  {user.displayName} || {user.name}
                 </button>
                 {showDropdown && (
                   <div className="flex flex-col relative right-0 mt-6 py-2 w-48 bg-white rounded-md shadow-xl z-20">
