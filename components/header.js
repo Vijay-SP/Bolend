@@ -29,7 +29,7 @@ export default function Header() {
     <header className="bg-gray-800 text-white p-4">
       <div className="container mx-auto flex justify-between items-center">
         <Link href="/">
-          <p className="text-lg font-bold">Lend & Borrow</p>
+          <p className="text-lg font-bold">Tradechain</p>
         </Link>
         <nav className="flex items-center">
           {user ? (
@@ -50,7 +50,7 @@ export default function Header() {
                   onClick={() => setShowDropdown(!showDropdown)}
                   className="focus:outline-none"
                 >
-                  {user.displayName} || {user.name}
+                  {user.displayName}{user.name}
                 </button>
                 {showDropdown && (
                   <div className="flex flex-col relative right-0 mt-6 py-2 w-48 bg-white rounded-md shadow-xl z-20">
