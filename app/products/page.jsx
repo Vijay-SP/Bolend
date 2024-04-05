@@ -126,7 +126,7 @@ export default function MyProducts() {
     const withdrawBarterRequest = async (productId, requestId) => {
         const productRef = doc(db, "products", productId);
         try {
-            const productSnap = await getDocs(productRef);
+            const productSnap = await getDoc(productRef);
             if (productSnap.exists()) {
                 const productData = productSnap.data();
                 const updatedRequests = productData.barterRequests.filter(request => request.id !== requestId);
