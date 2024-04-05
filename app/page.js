@@ -154,7 +154,7 @@ export default function HomePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filteredProducts.map(product => (
             <div key={product.id} className="bg-white shadow rounded-lg overflow-hidden">
-              <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover" />
+              <img src={product.imageUrl} alt={product.name} className="w-58 h-48 mx-auto object-cover" />
               <div className="p-4">
                 <h3 className="text-lg text-purple-500 font-bold">{product.name}</h3>
                 <p className="text-gray-600 mb-4">{product.description}</p>
