@@ -71,6 +71,7 @@ export default function HomePage() {
               barterExchangeProductPrice: productData.price,
               barterExchangeProductImage: productData.imageUrl,
               barterStatus: false,
+              barterOwnerId: productData.userId,
             }
           ];
   
@@ -158,7 +159,7 @@ export default function HomePage() {
                 <h3 className="text-lg text-purple-500 font-bold">{product.name}</h3>
                 <p className="text-gray-600 mb-4">{product.description}</p>
                 <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold">Rs. {product.price}</span>
+                  <span className="text-lg text-green-600 font-semibold">₹ {product.price}</span>
                   <button onClick={() => addToCart(product.id)}
                     className="px-4 py-2 bg-yellow-500 rounded text-white hover:bg-yellow-600 transition-colors">
                     Add to Cart

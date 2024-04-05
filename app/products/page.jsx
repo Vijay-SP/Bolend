@@ -2,45 +2,64 @@
 
 import React, { useEffect, useState } from 'react';
 import { getAuth } from 'firebase/auth';
-import { collection, query, where, getDocs, updateDoc, doc, getDoc, arrayRemove, writeBatch} from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, getDoc, arrayRemove, writeBatch } from 'firebase/firestore';
 import { db } from '../../firebase'; // Ensure you're importing your initialized firebase db instance
-import Header from '@/components/header';
-import Footer from '@/components/footer';
+import Header from '../../components/header';
+import Footer from '../../components/footer';
 import { Toaster, toast } from 'react-hot-toast';
+import Script from 'next/script';
 
 export default function MyProducts() {
     const [products, setProducts] = useState([]);
+    const [totalAmount, setTotalAmount] = useState(0);
     const [barterRequests, setBarterRequests] = useState([]);
     const [myBarterRequests, setMyBarterRequests] = useState([]);
+    const [currency, setCurrency] = useState('INR');
     const auth = getAuth();
     const user = auth.currentUser;
+    const [currentBarterRequest, setCurrentBarterRequest] = useState(null);
+
 
     useEffect(() => {
         if (user) {
             const productsRef = collection(db, "products");
-            const q = query(productsRef, where("userId", "==", user.uid));
+            getDocs(productsRef).then(querySnapshot => {
+                let userProducts = []; // Use a local variable to store user's products
+                let allBarterRequests = []; // Use a local variable to store barter requests related to user's products
+                let myRequests = []; // Use a local variable to store the user's barter requests on other people's products
 
-            getDocs(q).then(querySnapshot => {
-                const items = [];
-                let allBarterRequests = [];
                 querySnapshot.forEach((doc) => {
                     const productData = { id: doc.id, ...doc.data() };
-                    items.push(productData);
-                    if (productData.barterRequests) {
-                        allBarterRequests = allBarterRequests.concat(productData.barterRequests.map(request => {
-                            return { ...request, productId: productData.id };
-                        }));
+                    if (productData.userId === user.uid) {
+                        userProducts.push(productData); // Add to the local variable
+                        if (productData.barterRequests) {
+                            const requests = productData.barterRequests.map(request => ({
+                                ...request,
+                                productId: productData.id
+                            }));
+                            allBarterRequests.push(...requests); // Add requests related to this user's product
+                        }
+                    } else if (productData.barterRequests) {
+                        const myRequestsForThisProduct = productData.barterRequests
+                            .filter(request => request.requestingUserId === user.uid)
+                            .map(request => ({
+                                ...request,
+                                productId: productData.id
+                            }));
+                        myRequests.push(...myRequestsForThisProduct);
                     }
                 });
-                setProducts(items);
-                setBarterRequests(allBarterRequests);
-                // Filter out requests created by the current user
-                setMyBarterRequests(allBarterRequests.filter(request => request.requestingUserId === user.uid));
+
+                setProducts(userProducts); // Update the state once with all user's products
+                setBarterRequests(allBarterRequests); // Set barterRequests with requests related to user's products
+                setMyBarterRequests(myRequests); // Set myBarterRequests with the user's requests on other people's products
             }).catch(error => {
                 console.error("Error fetching products: ", error);
             });
         }
     }, [user]);
+
+
 
     const toggleProductStatus = async (productId, currentStatus) => {
         const newStatus = currentStatus === "available" ? "unavailable" : "available";
@@ -125,39 +144,172 @@ export default function MyProducts() {
 
     const continueToExchange = async (barterRequest) => {
         if (barterRequest.barterStatus) {
-        if (parseInt(barterRequest.selectedProductPrice) <= parseInt(barterRequest.barterExchangeProductPrice)) {
-            const batch = writeBatch(db);
-            const productRef = doc(db, "products", barterRequest.barterExchangeProductId);
-            const selectedProductRef = doc(db, "products", barterRequest.productId);
-            
-            // Mark the barter as complete and update the user ID to the requester's
-            batch.update(productRef, {
-                status: 'unavailable',
-                userId: user.uid, // Assuming the user id is the barter requester's id
-            });
+            const priceDifference = parseInt(barterRequest.barterExchangeProductPrice) - parseInt(barterRequest.selectedProductPrice);
+            if (priceDifference > 0) {
+                setCurrentBarterRequest(barterRequest); // Store the current barterRequest in state
+                setTotalAmount(priceDifference); // Set the total amount to the price difference
+                
+                    
 
-            batch.update(selectedProductRef, {
-                status: 'unavailable',
-                userId: barterRequest.requestingUserId,
-                barterRequests: [], // Clearing out all barter requests for this product
-            });
+                
+            } else {
+                const batch = writeBatch(db);
+                const productRef = doc(db, "products", barterRequest.barterExchangeProductId);
+                const selectedProductRef = doc(db, "products", barterRequest.productId);
 
-            try {
-                await batch.commit();
-                toast.success("Exchange successful");
-            } catch (error) {
-                console.error("Error during exchange: ", error);
-                toast.error("Error during exchange. Please try again.");
+                // Mark the barter as complete and update the user ID to the requester's
+                batch.update(productRef, {
+                    status: 'unavailable',
+                    userId: barterRequest.barterOwnerId, // Assuming the user id is the barter requester's id
+                });
+
+                batch.update(selectedProductRef, {
+                    status: 'unavailable',
+                    userId: user.uid,
+                    barterRequests: [], // Clearing out all barter requests for this product
+                });
+
+                try {
+                    await batch.commit();
+                    toast.success("Exchange successful. ");
+                } catch (error) {
+                    console.error("Error during exchange: ", error);
+                    toast.error("Error during exchange. Please try again.");
+                }
             }
-        } else {
-            console.log()
-            toast.error("The offered amount is lower than the requested product's price.",error);
-        }}
+        }
     };
+    
+    useEffect(() => {
+        if (totalAmount > 0 && currentBarterRequest) {
+            processPayment(currentBarterRequest);
+        }
+    }, [totalAmount, currentBarterRequest]);
+
+    const createOrderId = async () => {
+        try {
+            const response = await fetch('/api/order', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    amount: parseFloat(totalAmount) * 100,
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const data = await response.json();
+            return data.orderId;
+        } catch (error) {
+            console.error('There was a problem with your fetch operation:', error);
+        }
+    };
+
+    const verifyPayment = async (data, barterRequest) => {
+        try {
+            const result = await fetch('/api/verify', {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            if (result.ok) {
+                const res = await result.json();
+                if (res.isOk) {
+                    // Update the userId in each product document
+                    const batch = writeBatch(db);
+                    const productRef = doc(db, "products", barterRequest.barterExchangeProductId);
+                    const selectedProductRef = doc(db, "products", barterRequest.productId);
+
+                    // Mark the barter as complete and update the user ID to the requester's
+                    batch.update(productRef, {
+                        status: 'unavailable',
+                        userId: barterRequest.barterOwnerId, // Assuming the user id is the barter requester's id
+                    });
+
+                    batch.update(selectedProductRef, {
+                        status: 'unavailable',
+                        userId: user.uid,
+                        barterRequests: [], // Clearing out all barter requests for this product
+                    });
+
+                    try {
+                        await batch.commit();
+                        toast.success("Exchange successful. ");
+                    } catch (error) {
+                        console.error("Error during exchange: ", error);
+                        toast.error("Error during exchange. Please try again.");
+                    }
+
+                    toast.success("Payment successful!");
+                } else {
+                    toast.error(res.message);
+                }
+            } else {
+                console.error('Network response was not ok');
+                toast.error('Payment verification failed');
+            }
+        } catch (error) {
+            console.error('There was a problem with your fetch operation:', error);
+            toast.error('Error verifying payment');
+        }
+        finally {
+            setCurrentBarterRequest(null); // Reset the currentBarterRequest state
+        }
+    };
+
+
+    const processPayment = async (barterRequest) => { // Accept barterRequest as a parameter
+        try {
+            const orderId = await createOrderId();
+            const options = {
+                key: 'rzp_test_XKZB77Xkb3P9gK',
+                amount: parseFloat(totalAmount) * 100,
+                currency: currency,
+                name: 'Borrow & lend',
+                description: 'Website for barter system',
+                order_id: orderId,
+                handler: async function (response) {
+                    const data = {
+                        orderCreationId: orderId,
+                        razorpayPaymentId: response.razorpay_payment_id,
+                        razorpayOrderId: response.razorpay_order_id,
+                        razorpaySignature: response.razorpay_signature,
+                    };
+    
+                    await verifyPayment(data, barterRequest); // Pass barterRequest to verifyPayment
+                },
+                prefill: {
+                    name: auth.currentUser.displayName,
+                    email: auth.currentUser.email,
+                },
+                theme: {
+                    color: '#3399cc',
+                },
+            };
+            const paymentObject = new window.Razorpay(options);
+            paymentObject.on('payment.failed', function (response) {
+                alert(response.error.description);
+            });
+            paymentObject.open();
+        } catch (error) {
+            console.log(error);
+        }
+    };
+    
+
 
 
     return (
         <>
+            <Script
+                id="razorpay-checkout-js"
+                src="https://checkout.razorpay.com/v1/checkout.js"
+            />
             <Header />
             <Toaster />
             <div className="p-4">
@@ -209,36 +361,36 @@ export default function MyProducts() {
                 </div>
 
                 <h2 className="text-2xl font-bold mt-8 mb-4">My Barter Requests</h2>
-            <div>
-                {myBarterRequests.length === 0 ? (
-                    <p>No barter requests created by you.</p>
-                ) : (
-                    myBarterRequests.map((request, index) => (
-                        <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4">
-                           
+                <div>
+                    {myBarterRequests.length === 0 ? (
+                        <p>No barter requests created by you.</p>
+                    ) : (
+                        myBarterRequests.map((request, index) => (
+                            <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4">
+
                                 <p><strong>Product Offered for Barter:</strong> {request.selectedProductName}</p>
                                 <p><strong>Offered to:</strong> {request.barterExchangeProductName}</p>
                                 <p><strong>Offered Product Price:</strong> {request.barterExchangeProductPrice}</p>
                                 <p><strong>My Product Price:</strong> {request.selectedProductPrice}</p>
                                 <p><strong>Offered Product Image:</strong> <img src={request.barterExchangeProductImage} alt={request.selectedProductName} className="w-50 h-48 object-cover" /></p>
-                               
 
-                            <div className="flex justify-end space-x-2 items-center mt-4">
-                                <button onClick={() => withdrawBarterRequest(request.productId, request.id)}
+
+                                <div className="flex justify-end space-x-2 items-center mt-4">
+                                    <button onClick={() => withdrawBarterRequest(request.productId, request.id)}
                                         className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">
-                                    Withdraw
-                                </button>
-                                {request.barterStatus && (
-                                    <button onClick={() => continueToExchange(request)}
-                                            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                                        Continue to Exchange
+                                        Withdraw
                                     </button>
-                                )}
+                                    {request.barterStatus && (
+                                        <button onClick={() => continueToExchange(request)}
+                                            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                                            Continue to Exchange
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))
-                )}
-            </div>
+                        ))
+                    )}
+                </div>
             </div>
             <Footer />
         </>

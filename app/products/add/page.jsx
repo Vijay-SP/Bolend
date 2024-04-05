@@ -8,7 +8,6 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Toaster, toast } from "react-hot-toast";
 import Header from "../../../components/header";
 import Footer from "../../../components/footer";
-
 export default function AddProduct() {
   const { register, handleSubmit, reset } = useForm();
   const [image, setImage] = useState(null);

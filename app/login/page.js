@@ -10,8 +10,8 @@ import {
   } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation"
-import Header from '@/components/header';
-import Footer from '@/components/footer';
+import Header from '../../components/header';
+import Footer from '../../components/footer';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');

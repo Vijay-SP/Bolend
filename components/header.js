@@ -43,9 +43,7 @@ export default function Header() {
               <Link href="/products">
                 <p className="ml-4 mr-6 px-4 py-2 bg-green-500 rounded hover:bg-green-600">My Products</p>
               </Link>
-              <Link href="/my-purchases">
-                <p className="ml-4 mr-6 px-4 py-2 bg-green-500 rounded hover:bg-green-600">My Purchases</p>
-              </Link>
+              
               <div className="flex items-center relative">
                 <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full mr-2" />
                 <button
